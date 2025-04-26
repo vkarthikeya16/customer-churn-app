@@ -19,17 +19,17 @@ def preprocess(df):
     # One-hot encode
     df = pd.get_dummies(df, columns=categorical_cols)
     
-    # Add missing columns
+    # Add missing dummy columns
     missing_cols = set(trained_feature_names) - set(df.columns)
     for col in missing_cols:
         df[col] = 0
     
-    # Only keep columns used during training (drop extra)
+    # Drop extra columns not seen during training
     df = df[[col for col in trained_feature_names]]
     
     return df
 
-st.title("📊 Customer Churn Prediction")
+st.title("📊 Customer Churn Prediction App")
 
 # Batch Prediction
 st.sidebar.header("📁 Upload CSV for Batch Prediction")
@@ -38,8 +38,11 @@ batch_file = st.sidebar.file_uploader("Upload CSV file", type=["csv"])
 if batch_file:
     df = pd.read_csv(batch_file)
     df_processed = preprocess(df)
+
+    # Debug line to see feature names passed to scaler
+    st.write("🚨 Columns passed to scaler (batch):", list(df_processed.columns))
+
     df_scaled = scaler.transform(df_processed)
-    
     preds = model.predict(df_scaled)
     probs = model.predict_proba(df_scaled)[:, 1]
 
@@ -109,6 +112,10 @@ if submit:
     })
 
     input_processed = preprocess(input_data)
+
+    # Debug line to see feature names passed to scaler
+    st.write("🚨 Columns passed to scaler (single):", list(input_processed.columns))
+
     input_scaled = scaler.transform(input_processed)
     prob = model.predict_proba(input_scaled)[0][1]
     prediction = int(prob > 0.5)
