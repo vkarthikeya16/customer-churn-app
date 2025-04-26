@@ -1,8 +1,7 @@
-# app.py — Streamlit Churn Prediction (Fully Corrected and Enhanced)
+# app.py — Streamlit Churn Prediction
 
 import streamlit as st
 import pandas as pd
-import joblib
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from imblearn.over_sampling import SMOTE
@@ -11,8 +10,6 @@ from sklearn.preprocessing import StandardScaler
 import plotly.graph_objects as go
 
 st.set_page_config(page_title="Customer Churn Predictor", layout="centered")
-
-
 
 # Load dataset
 @st.cache_data
@@ -55,11 +52,10 @@ if batch_file:
     scaled = scaler.transform(df)
     preds = model.predict(scaled)
     proba = model.predict_proba(scaled)
-if proba.shape[1] == 2:
-    probs = proba[:, 1]
-else:
-    probs = proba[:, 0]
-
+    if proba.shape[1] == 2:
+        probs = proba[:, 1]
+    else:
+        probs = proba[:, 0]
     df_results = pd.DataFrame({
         "Churn Flag (0=No, 1=Yes)": preds,
         "Churn_Probability": probs,
@@ -98,7 +94,6 @@ with st.form("churn_form"):
     st.subheader("🧾 Customer Profile")
     col1, col2 = st.columns(2)
     with col1:
-        age = st.number_input("Age", 18, 100, 30)
         tenure = st.number_input("Tenure (months)", 0, 100, 12)
         city_tier = st.selectbox("City Tier", [1, 2, 3])
         warehouse_to_home = st.number_input("Warehouse to Home Distance", 0, 100, 10)
@@ -164,11 +159,10 @@ if submitted:
     input_data = input_data[trained_feature_names]
     input_scaled = scaler.transform(input_data)
     proba = model.predict_proba(input_scaled)[0]
-if len(proba) == 2:
-    prob = proba[1]
-else:
-    prob = proba[0]
-
+    if len(proba) == 2:
+        prob = proba[1]
+    else:
+        prob = proba[0]
     prediction = int(prob > 0.5)
 
     st.markdown("### 📈 Churn Risk Gauge")
