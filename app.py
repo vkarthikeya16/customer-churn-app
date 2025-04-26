@@ -47,10 +47,14 @@ def preprocess(df):
 
 if batch_file:
     df = pd.read_csv(batch_file)
+    
+    # 🛠️ PREPROCESS the uploaded batch!
     df = preprocess(df)
+    
     scaled = scaler.transform(df)
     preds = model.predict(scaled)
     probs = model.predict_proba(scaled)[:, 1]
+
 
     df_results = pd.DataFrame({
         "Prediction (0=No,1=Yes)": preds,
