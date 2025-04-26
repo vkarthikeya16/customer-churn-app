@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 
 st.set_page_config(page_title="Customer Churn Prediction App", layout="centered")
 
-# Load model, scaler, feature names
+# Load model, scaler, and feature names
 model = joblib.load("churn_model.pkl")
 scaler = joblib.load("scaler.pkl")
 trained_feature_names = joblib.load("feature_names.pkl")
@@ -16,22 +16,18 @@ trained_feature_names = joblib.load("feature_names.pkl")
 def preprocess(df):
     categorical_cols = ["Gender", "MaritalStatus", "PreferedOrderCat", "PreferredLoginDevice", "PreferredPaymentMode"]
     
-    # One-hot encode
     df = pd.get_dummies(df, columns=categorical_cols)
     
-    # Add missing dummy columns
     missing_cols = set(trained_feature_names) - set(df.columns)
     for col in missing_cols:
         df[col] = 0
-    
-    # Drop extra columns not seen during training
+
     df = df[[col for col in trained_feature_names]]
-    
     return df
 
-st.title("📊 Customer Churn Prediction App")
+st.title("📊 Customer Churn Prediction")
 
-# Batch Prediction
+# Batch Prediction Section
 st.sidebar.header("📁 Upload CSV for Batch Prediction")
 batch_file = st.sidebar.file_uploader("Upload CSV file", type=["csv"])
 
@@ -39,8 +35,7 @@ if batch_file:
     df = pd.read_csv(batch_file)
     df_processed = preprocess(df)
 
-    # Debug line to see feature names passed to scaler
-    st.write("🚨 Columns passed to scaler (batch):", list(df_processed.columns))
+    st.write("🚨 Columns passed to scaler (batch):", list(df_processed.columns))  # Debugging line
 
     df_scaled = scaler.transform(df_processed)
     preds = model.predict(df_scaled)
@@ -58,9 +53,9 @@ if batch_file:
     csv = df_results.to_csv(index=False).encode('utf-8')
     st.download_button("⬇️ Download Predictions", csv, "churn_predictions.csv", "text/csv")
 
+# Single Customer Prediction Section
 st.header("🧑 Single Customer Prediction")
 
-# Single Customer Input
 with st.form("single_customer_form"):
     col1, col2 = st.columns(2)
     with col1:
@@ -89,32 +84,31 @@ with st.form("single_customer_form"):
     submit = st.form_submit_button("Predict Now 🔮")
 
 if submit:
-    input_data = pd.DataFrame({
-        "Age": [Age],
-        "Tenure": [Tenure],
-        "CityTier": [CityTier],
-        "WarehouseToHome": [WarehouseToHome],
-        "HourSpendOnApp": [HourSpendOnApp],
-        "NumberOfDeviceRegistered": [NumberOfDeviceRegistered],
-        "SatisfactionScore": [SatisfactionScore],
-        "NumberOfAddress": [NumberOfAddress],
-        "Complain": [1 if Complain == "Yes" else 0],
-        "OrderAmountHikeFromlastYear": [OrderAmountHikeFromlastYear],
-        "CouponUsed": [CouponUsed],
-        "OrderCount": [OrderCount],
-        "DaySinceLastOrder": [DaySinceLastOrder],
-        "CashbackAmount": [CashbackAmount],
-        "Gender": [Gender],
-        "MaritalStatus": [MaritalStatus],
-        "PreferedOrderCat": [PreferedOrderCat],
-        "PreferredLoginDevice": [PreferredLoginDevice],
-        "PreferredPaymentMode": [PreferredPaymentMode]
-    })
+    input_data = pd.DataFrame([{
+        "Age": Age,
+        "Tenure": Tenure,
+        "CityTier": CityTier,
+        "WarehouseToHome": WarehouseToHome,
+        "HourSpendOnApp": HourSpendOnApp,
+        "NumberOfDeviceRegistered": NumberOfDeviceRegistered,
+        "SatisfactionScore": SatisfactionScore,
+        "NumberOfAddress": NumberOfAddress,
+        "Complain": 1 if Complain == "Yes" else 0,
+        "OrderAmountHikeFromlastYear": OrderAmountHikeFromlastYear,
+        "CouponUsed": CouponUsed,
+        "OrderCount": OrderCount,
+        "DaySinceLastOrder": DaySinceLastOrder,
+        "CashbackAmount": CashbackAmount,
+        "Gender": Gender,
+        "MaritalStatus": MaritalStatus,
+        "PreferedOrderCat": PreferedOrderCat,
+        "PreferredLoginDevice": PreferredLoginDevice,
+        "PreferredPaymentMode": PreferredPaymentMode
+    }])
 
     input_processed = preprocess(input_data)
 
-    # Debug line to see feature names passed to scaler
-    st.write("🚨 Columns passed to scaler (single):", list(input_processed.columns))
+    st.write("🚨 Columns passed to scaler (single):", list(input_processed.columns))  # Debugging line
 
     input_scaled = scaler.transform(input_processed)
     prob = model.predict_proba(input_scaled)[0][1]
