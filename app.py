@@ -179,4 +179,4 @@ if submit:
         st.success(f"✅ Customer NOT likely to churn | 🟢 Probability: {(1-prob):.2f}")
 
 st.markdown("---")
-st.markdown("Built with ❤️ by [Your Name]", unsafe_allow_html=True)
+st.markdown("Built with ❤️ by Karthikeya Vaitla ", unsafe_allow_html=True)
