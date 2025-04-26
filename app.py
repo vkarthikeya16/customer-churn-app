@@ -9,6 +9,22 @@ import plotly.graph_objects as go
 # Streamlit page setup
 st.set_page_config(page_title="Customer Churn Predictor", layout="centered")
 
+def preprocess(df):
+    # One-hot encode the categorical columns
+    df = pd.get_dummies(df, columns=[
+        "Gender", "MaritalStatus", "PreferedOrderCat", "PreferredLoginDevice", "PreferredPaymentMode"
+    ])
+    
+    # Add missing columns that model expects
+    for col in trained_feature_names:
+        if col not in df.columns:
+            df[col] = 0
+    
+    # Arrange columns in same order
+    df = df[trained_feature_names]
+    
+    return df
+
 # Load the saved model, scaler, and feature names
 model = joblib.load('churn_model.pkl')
 scaler = joblib.load('scaler.pkl')
@@ -47,14 +63,14 @@ def preprocess(df):
 
 if batch_file:
     df = pd.read_csv(batch_file)
-    
-    # 🛠️ PREPROCESS the uploaded batch!
+
+    # 🛠️ Preprocess uploaded batch
     df = preprocess(df)
-    
+
+    # Now predict
     scaled = scaler.transform(df)
     preds = model.predict(scaled)
     probs = model.predict_proba(scaled)[:, 1]
-
 
     df_results = pd.DataFrame({
         "Prediction (0=No,1=Yes)": preds,
@@ -62,6 +78,11 @@ if batch_file:
         "Churns?": ["YES" if p == 1 else "NO" for p in preds],
         "Interpretation": ["⚠️ Likely to Churn" if p == 1 else "✅ Will Not Churn" for p in preds]
     })
+
+    # Show result
+    st.write("### 🔎 Batch Prediction Results")
+    st.dataframe(df_results)
+
 
     def highlight_churn(cell):
         if cell == "⚠️ Likely to Churn":
