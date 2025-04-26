@@ -54,7 +54,12 @@ if batch_file:
     df = df[trained_feature_names]
     scaled = scaler.transform(df)
     preds = model.predict(scaled)
-    probs = model.predict_proba(scaled)[:, 1]
+    proba = model.predict_proba(scaled)
+if proba.shape[1] == 2:
+    probs = proba[:, 1]
+else:
+    probs = proba[:, 0]
+
     df_results = pd.DataFrame({
         "Churn Flag (0=No, 1=Yes)": preds,
         "Churn_Probability": probs,
@@ -158,7 +163,12 @@ if submitted:
             input_data[col] = 0
     input_data = input_data[trained_feature_names]
     input_scaled = scaler.transform(input_data)
-    prob = model.predict_proba(input_scaled)[0][1]
+    proba = model.predict_proba(input_scaled)[0]
+if len(proba) == 2:
+    prob = proba[1]
+else:
+    prob = proba[0]
+
     prediction = int(prob > 0.5)
 
     st.markdown("### 📈 Churn Risk Gauge")
