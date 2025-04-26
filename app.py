@@ -12,28 +12,28 @@ model = joblib.load("churn_model.pkl")
 scaler = joblib.load("scaler.pkl")
 trained_feature_names = joblib.load("feature_names.pkl")
 
-# Preprocessing function
+# Final corrected Preprocessing function
 def preprocess(df):
     # Drop CustomerID if exists
     if 'CustomerID' in df.columns:
         df = df.drop(columns=['CustomerID'])
 
-    # Handle missing categorical columns and values
+    # Handle missing categorical columns and force string type
     categorical_cols = ["Gender", "MaritalStatus", "PreferedOrderCat", "PreferredLoginDevice", "PreferredPaymentMode"]
     for col in categorical_cols:
         if col not in df.columns:
             df[col] = "Unknown"
-        df[col] = df[col].fillna("Unknown")
+        df[col] = df[col].fillna("Unknown").astype(str)  # Fill and force to string
 
     # One-hot encode
     df = pd.get_dummies(df, columns=categorical_cols)
 
-    # Add missing columns
+    # Add missing dummy columns if any
     missing_cols = set(trained_feature_names) - set(df.columns)
     for col in missing_cols:
         df[col] = 0
 
-    # Match column order
+    # Ensure correct column order
     df = df[trained_feature_names]
 
     return df
