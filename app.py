@@ -17,9 +17,11 @@ def preprocess(df):
     df = pd.get_dummies(df, columns=[
         "Gender", "MaritalStatus", "PreferedOrderCat", "PreferredLoginDevice", "PreferredPaymentMode"
     ])
+    # Add any missing columns that model expects
     for col in trained_feature_names:
         if col not in df.columns:
             df[col] = 0
+    # Ensure the same column order as during training
     df = df[trained_feature_names]
     return df
 
@@ -31,18 +33,17 @@ batch_file = st.sidebar.file_uploader("Upload CSV file", type=["csv"])
 
 if batch_file:
     df = pd.read_csv(batch_file)
-    df = preprocess(df)
+    df_processed = preprocess(df)
+    df_scaled = scaler.transform(df_processed)
     
-    scaled = scaler.transform(df)
-    preds = model.predict(scaled)
-    probs = model.predict_proba(scaled)[:, 1]
+    preds = model.predict(df_scaled)
+    probs = model.predict_proba(df_scaled)[:, 1]
 
-    df_results = pd.DataFrame({
-        "Prediction (0=No,1=Yes)": preds,
-        "Churn_Probability": probs,
-        "Churn?": ["YES" if p == 1 else "NO" for p in preds],
-        "Interpretation": ["⚠️ Likely to Churn" if p == 1 else "✅ Will Not Churn" for p in preds]
-    })
+    df_results = df.copy()
+    df_results["Prediction (0=No,1=Yes)"] = preds
+    df_results["Churn_Probability"] = probs
+    df_results["Churn?"] = ["YES" if p == 1 else "NO" for p in preds]
+    df_results["Interpretation"] = ["⚠️ Likely to Churn" if p == 1 else "✅ Will Not Churn" for p in preds]
 
     st.write("### 🔎 Batch Prediction Results")
     st.dataframe(df_results)
@@ -104,9 +105,8 @@ if submit:
     })
 
     input_processed = preprocess(input_data)
-
-    scaled = scaler.transform(input_processed)
-    prob = model.predict_proba(scaled)[0][1]
+    input_scaled = scaler.transform(input_processed)
+    prob = model.predict_proba(input_scaled)[0][1]
     prediction = int(prob > 0.5)
 
     st.subheader("📈 Churn Risk Gauge")
