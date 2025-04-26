@@ -12,34 +12,47 @@ model = joblib.load("churn_model.pkl")
 scaler = joblib.load("scaler.pkl")
 trained_feature_names = joblib.load("feature_names.pkl")
 
-# Preprocessing function for batch
+# Preprocessing function
 def preprocess(df):
     categorical_cols = ["Gender", "MaritalStatus", "PreferedOrderCat", "PreferredLoginDevice", "PreferredPaymentMode"]
+    
     df = pd.get_dummies(df, columns=categorical_cols)
     
     missing_cols = set(trained_feature_names) - set(df.columns)
     for col in missing_cols:
         df[col] = 0
-    
+
     df = df[trained_feature_names]
     return df
 
+# Title
 st.title("📊 Customer Churn Prediction")
 
-# Batch Prediction
+# ================= Batch Prediction Section =================
 st.sidebar.header("📁 Upload CSV for Batch Prediction")
 batch_file = st.sidebar.file_uploader("Upload CSV file", type=["csv"])
 
 if batch_file:
+    # Read uploaded CSV
     df = pd.read_csv(batch_file)
+
+    # Debug: Columns BEFORE preprocessing
+    st.write("🚨 BEFORE preprocessing: Columns in uploaded file:", list(df.columns))
+
+    # Preprocess
     df_processed = preprocess(df)
 
-    st.write("🚨 Columns passed to scaler (batch):", list(df_processed.columns))
+    # Debug: Columns AFTER preprocessing
+    st.write("🚨 AFTER preprocessing: Columns passed to scaler:", list(df_processed.columns))
 
+    # Scaling
     df_scaled = scaler.transform(df_processed)
+
+    # Predict
     preds = model.predict(df_scaled)
     probs = model.predict_proba(df_scaled)[:, 1]
 
+    # Results
     df_results = df.copy()
     df_results["Prediction (0=No,1=Yes)"] = preds
     df_results["Churn_Probability"] = probs
@@ -49,10 +62,11 @@ if batch_file:
     st.write("### 🔎 Batch Prediction Results")
     st.dataframe(df_results)
 
+    # Download button
     csv = df_results.to_csv(index=False).encode('utf-8')
     st.download_button("⬇️ Download Predictions", csv, "churn_predictions.csv", "text/csv")
 
-# Single Customer Prediction
+# ================= Single Customer Prediction Section =================
 st.header("🧑 Single Customer Prediction")
 
 with st.form("single_customer_form"):
@@ -83,7 +97,7 @@ with st.form("single_customer_form"):
     submit = st.form_submit_button("Predict Now 🔮")
 
 if submit:
-    # Build input dictionary
+    # Create input dictionary
     input_dict = {
         "Age": Age,
         "Tenure": Tenure,
@@ -98,34 +112,29 @@ if submit:
         "CouponUsed": CouponUsed,
         "OrderCount": OrderCount,
         "DaySinceLastOrder": DaySinceLastOrder,
-        "CashbackAmount": CashbackAmount
+        "CashbackAmount": CashbackAmount,
+        "Gender": Gender,
+        "MaritalStatus": MaritalStatus,
+        "PreferedOrderCat": PreferedOrderCat,
+        "PreferredLoginDevice": PreferredLoginDevice,
+        "PreferredPaymentMode": PreferredPaymentMode
     }
-    
-    # Start fresh input DataFrame
+
+    # DataFrame
     input_df = pd.DataFrame([input_dict])
-    
-    # Now create the one-hot encoded columns manually
-    category_map = {
-        f"Gender_{Gender}": 1,
-        f"MaritalStatus_{MaritalStatus}": 1,
-        f"PreferedOrderCat_{PreferedOrderCat}": 1,
-        f"PreferredLoginDevice_{PreferredLoginDevice}": 1,
-        f"PreferredPaymentMode_{PreferredPaymentMode}": 1
-    }
 
-    for col in trained_feature_names:
-        if col not in input_df.columns:
-            input_df[col] = category_map.get(col, 0)
+    # Preprocess
+    input_processed = preprocess(input_df)
 
-    # Reorder columns
-    input_df = input_df[trained_feature_names]
+    # Debug: Columns passed
+    st.write("🚨 Single prediction: Columns passed to scaler:", list(input_processed.columns))
 
-    st.write("🚨 Columns passed to scaler (single):", list(input_df.columns))
-
-    input_scaled = scaler.transform(input_df)
+    # Scaling and Prediction
+    input_scaled = scaler.transform(input_processed)
     prob = model.predict_proba(input_scaled)[0][1]
     prediction = int(prob > 0.5)
 
+    # Gauge chart
     st.subheader("📈 Churn Risk Gauge")
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
