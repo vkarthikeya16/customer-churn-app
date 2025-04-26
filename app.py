@@ -14,21 +14,34 @@ trained_feature_names = joblib.load("feature_names.pkl")
 
 # Preprocessing function
 def preprocess(df):
+    # Drop CustomerID if exists
+    if 'CustomerID' in df.columns:
+        df = df.drop(columns=['CustomerID'])
+
+    # Handle missing categorical columns and values
     categorical_cols = ["Gender", "MaritalStatus", "PreferedOrderCat", "PreferredLoginDevice", "PreferredPaymentMode"]
-    
+    for col in categorical_cols:
+        if col not in df.columns:
+            df[col] = "Unknown"
+        df[col] = df[col].fillna("Unknown")
+
+    # One-hot encode
     df = pd.get_dummies(df, columns=categorical_cols)
-    
+
+    # Add missing columns
     missing_cols = set(trained_feature_names) - set(df.columns)
     for col in missing_cols:
         df[col] = 0
 
+    # Match column order
     df = df[trained_feature_names]
+
     return df
 
-# Title
-st.title("📊 Customer Churn Prediction")
+# App Title
+st.title("📊 Customer Churn Prediction App")
 
-# ================= Batch Prediction Section =================
+# =================== Batch Prediction Section ===================
 st.sidebar.header("📁 Upload CSV for Batch Prediction")
 batch_file = st.sidebar.file_uploader("Upload CSV file", type=["csv"])
 
@@ -62,11 +75,11 @@ if batch_file:
     st.write("### 🔎 Batch Prediction Results")
     st.dataframe(df_results)
 
-    # Download button
+    # Download Predictions
     csv = df_results.to_csv(index=False).encode('utf-8')
     st.download_button("⬇️ Download Predictions", csv, "churn_predictions.csv", "text/csv")
 
-# ================= Single Customer Prediction Section =================
+# =================== Single Customer Prediction Section ===================
 st.header("🧑 Single Customer Prediction")
 
 with st.form("single_customer_form"):
@@ -97,7 +110,7 @@ with st.form("single_customer_form"):
     submit = st.form_submit_button("Predict Now 🔮")
 
 if submit:
-    # Create input dictionary
+    # Build input dictionary
     input_dict = {
         "Age": Age,
         "Tenure": Tenure,
@@ -120,21 +133,21 @@ if submit:
         "PreferredPaymentMode": PreferredPaymentMode
     }
 
-    # DataFrame
+    # Convert to DataFrame
     input_df = pd.DataFrame([input_dict])
 
     # Preprocess
     input_processed = preprocess(input_df)
 
-    # Debug: Columns passed
+    # Debug
     st.write("🚨 Single prediction: Columns passed to scaler:", list(input_processed.columns))
 
-    # Scaling and Prediction
+    # Scale and Predict
     input_scaled = scaler.transform(input_processed)
     prob = model.predict_proba(input_scaled)[0][1]
     prediction = int(prob > 0.5)
 
-    # Gauge chart
+    # Show results
     st.subheader("📈 Churn Risk Gauge")
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
