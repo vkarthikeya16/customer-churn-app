@@ -1,5 +1,4 @@
-
-# app.py — Deployment Ready
+# app.py — FINAL FIXED
 
 import streamlit as st
 import pandas as pd
@@ -7,29 +6,54 @@ import numpy as np
 import joblib
 import plotly.graph_objects as go
 
+# Streamlit page setup
 st.set_page_config(page_title="Customer Churn Predictor", layout="centered")
 
+# Load the saved model, scaler, and feature names
 model = joblib.load('churn_model.pkl')
 scaler = joblib.load('scaler.pkl')
 trained_feature_names = joblib.load('feature_names.pkl')
 
 st.title("📊 Customer Churn Prediction App")
 
+# --- Batch Upload Section ---
 st.sidebar.header("📁 Upload CSV for Batch Testing")
 batch_file = st.sidebar.file_uploader("Upload CSV file", type=["csv"])
 
-if batch_file:
-    df = pd.read_csv(batch_file)
-    df = pd.get_dummies(df)
+# Helper function to preprocess data
+def preprocess(df):
+    if 'Gender' in df.columns:
+        df['Gender_Male'] = (df['Gender'] == 'Male').astype(int)
+    if 'MaritalStatus' in df.columns:
+        df['MaritalStatus_Married'] = (df['MaritalStatus'] == 'Married').astype(int)
+        df['MaritalStatus_Single'] = (df['MaritalStatus'] == 'Single').astype(int)
+    if 'PreferedOrderCat' in df.columns:
+        for cat in ['Grocery', 'Laptop & Accessory', 'Mobile', 'Mobile Phone', 'Others']:
+            df[f'PreferedOrderCat_{cat}'] = (df['PreferedOrderCat'] == cat).astype(int)
+    if 'PreferredLoginDevice' in df.columns:
+        for dev in ['Mobile Phone', 'Phone']:
+            df[f'PreferredLoginDevice_{dev}'] = (df['PreferredLoginDevice'] == dev).astype(int)
+    if 'PreferredPaymentMode' in df.columns:
+        for pay in ['COD', 'Cash on Delivery', 'Credit Card', 'Debit Card', 'E wallet', 'UPI']:
+            df[f'PreferredPaymentMode_{pay}'] = df['PreferredPaymentMode'].apply(lambda x: 1 if pay in str(x) else 0)
+    
+    df = df.drop(columns=['Gender', 'MaritalStatus', 'PreferedOrderCat', 'PreferredLoginDevice', 'PreferredPaymentMode'], errors='ignore')
+    
     for col in trained_feature_names:
         if col not in df.columns:
             df[col] = 0
     df = df[trained_feature_names]
+    return df
+
+if batch_file:
+    df = pd.read_csv(batch_file)
+    df = preprocess(df)
     scaled = scaler.transform(df)
     preds = model.predict(scaled)
     probs = model.predict_proba(scaled)[:, 1]
+
     df_results = pd.DataFrame({
-        "Prediction": preds,
+        "Prediction (0=No,1=Yes)": preds,
         "Churn_Probability": probs,
         "Churns?": ["YES" if p == 1 else "NO" for p in preds],
         "Interpretation": ["⚠️ Likely to Churn" if p == 1 else "✅ Will Not Churn" for p in preds]
@@ -47,15 +71,14 @@ if batch_file:
     st.dataframe(df_results.style.applymap(highlight_churn, subset=["Interpretation"]))
 
     st.markdown("### 📊 Summary Stats")
-    total = len(df_results)
-    churned = df_results['Prediction'].sum()
-    st.markdown(f"- Total Customers: **{total}**")
-    st.markdown(f"- Customers Likely to Churn: **{churned}**")
-    st.markdown(f"- Churn Rate: **{(churned/total)*100:.2f}%**")
+    st.markdown(f"- Total Customers: **{len(df_results)}**")
+    st.markdown(f"- Likely to Churn: **{(df_results['Prediction (0=No,1=Yes)']==1).sum()}**")
+    st.markdown(f"- Churn Rate: **{(df_results['Prediction (0=No,1=Yes)']==1).mean()*100:.2f}%**")
 
     csv = df_results.to_csv(index=False).encode('utf-8')
     st.download_button("⬇️ Download Results", csv, "predictions.csv", "text/csv")
 
+# --- Single Customer Prediction ---
 st.header("🧾 Predict Single Customer")
 
 with st.form("churn_form"):
@@ -90,46 +113,46 @@ with st.form("churn_form"):
     submit = st.form_submit_button("🔍 Predict Now")
 
 if submit:
-    input_data = pd.DataFrame({
-        'Age': [age],
-        'Tenure': [tenure],
-        'CityTier': [city_tier],
-        'WarehouseToHome': [warehouse_to_home],
-        'HourSpendOnApp': [hours_on_app],
-        'NumberOfDeviceRegistered': [devices],
-        'SatisfactionScore': [satisfaction],
-        'NumberOfAddress': [addresses],
-        'Complain': [1 if complain == 'Yes' else 0],
-        'OrderAmountHikeFromlastYear': [order_hike],
-        'CouponUsed': [coupons],
-        'OrderCount': [order_count],
-        'DaySinceLastOrder': [days_since],
-        'CashbackAmount': [cashback],
-        'PreferredLoginDevice_Mobile Phone': [1 if login_device == 'Mobile Phone' else 0],
-        'PreferredLoginDevice_Phone': [1 if login_device == 'Phone' else 0],
-        'PreferredPaymentMode_COD': [1 if payment_mode == 'COD (Cash on Delivery)' else 0],
-        'PreferredPaymentMode_Cash on Delivery': [1 if payment_mode == 'COD (Cash on Delivery)' else 0],
-        'PreferredPaymentMode_Credit Card': [1 if payment_mode == 'Credit Card' else 0],
-        'PreferredPaymentMode_Debit Card': [1 if payment_mode == 'Debit Card' else 0],
-        'PreferredPaymentMode_E wallet': [1 if payment_mode == 'E wallet' else 0],
-        'PreferredPaymentMode_UPI': [1 if payment_mode == 'UPI' else 0],
-        'Gender_Male': [1 if gender == 'Male' else 0],
-        'PreferedOrderCat_Grocery': [1 if category == 'Grocery' else 0],
-        'PreferedOrderCat_Laptop & Accessory': [1 if category == 'Laptop & Accessory' else 0],
-        'PreferedOrderCat_Mobile': [1 if category == 'Mobile' else 0],
-        'PreferedOrderCat_Mobile Phone': [1 if category == 'Mobile Phone' else 0],
-        'PreferedOrderCat_Others': [1 if category == 'Others' else 0],
-        'MaritalStatus_Married': [1 if marital_status == 'Married' else 0],
-        'MaritalStatus_Single': [1 if marital_status == 'Single' else 0]
-    })
-
+    input_data = {
+        'Age': age,
+        'Tenure': tenure,
+        'CityTier': city_tier,
+        'WarehouseToHome': warehouse_to_home,
+        'HourSpendOnApp': hours_on_app,
+        'NumberOfDeviceRegistered': devices,
+        'SatisfactionScore': satisfaction,
+        'NumberOfAddress': addresses,
+        'Complain': 1 if complain == 'Yes' else 0,
+        'OrderAmountHikeFromlastYear': order_hike,
+        'CouponUsed': coupons,
+        'OrderCount': order_count,
+        'DaySinceLastOrder': days_since,
+        'CashbackAmount': cashback,
+        'PreferredLoginDevice_Mobile Phone': 1 if login_device == 'Mobile Phone' else 0,
+        'PreferredLoginDevice_Phone': 1 if login_device == 'Phone' else 0,
+        'Gender_Male': 1 if gender == 'Male' else 0,
+        'MaritalStatus_Married': 1 if marital_status == 'Married' else 0,
+        'MaritalStatus_Single': 1 if marital_status == 'Single' else 0,
+        'PreferedOrderCat_Grocery': 1 if category == 'Grocery' else 0,
+        'PreferedOrderCat_Laptop & Accessory': 1 if category == 'Laptop & Accessory' else 0,
+        'PreferedOrderCat_Mobile': 1 if category == 'Mobile' else 0,
+        'PreferedOrderCat_Mobile Phone': 1 if category == 'Mobile Phone' else 0,
+        'PreferedOrderCat_Others': 1 if category == 'Others' else 0,
+        'PreferredPaymentMode_COD': 1 if "COD" in payment_mode else 0,
+        'PreferredPaymentMode_Cash on Delivery': 1 if "Cash on Delivery" in payment_mode else 0,
+        'PreferredPaymentMode_Credit Card': 1 if payment_mode == 'Credit Card' else 0,
+        'PreferredPaymentMode_Debit Card': 1 if payment_mode == 'Debit Card' else 0,
+        'PreferredPaymentMode_E wallet': 1 if payment_mode == 'E wallet' else 0,
+        'PreferredPaymentMode_UPI': 1 if payment_mode == 'UPI' else 0
+    }
+    final_df = pd.DataFrame([input_data])
     for col in trained_feature_names:
-        if col not in input_data.columns:
-            input_data[col] = 0
+        if col not in final_df.columns:
+            final_df[col] = 0
+    final_df = final_df[trained_feature_names]
 
-    input_data = input_data[trained_feature_names]
-    input_scaled = scaler.transform(input_data)
-    prob = model.predict_proba(input_scaled)[0][1]
+    scaled = scaler.transform(final_df)
+    prob = model.predict_proba(scaled)[0][1]
     prediction = int(prob > 0.5)
 
     st.subheader("📈 Churn Risk Meter")
@@ -151,9 +174,9 @@ if submit:
     st.plotly_chart(fig, use_container_width=True)
 
     if prediction == 1:
-        st.warning(f"⚠️ Customer is likely to churn. | 🔸 Probability: {prob:.2f}")
+        st.warning(f"⚠️ Customer likely to churn | 🔸 Probability: {prob:.2f}")
     else:
-        st.success(f"✅ Customer is NOT likely to churn. | 🟢 Probability: {(1-prob):.2f}")
+        st.success(f"✅ Customer NOT likely to churn | 🟢 Probability: {(1-prob):.2f}")
 
 st.markdown("---")
-st.markdown("Built with ❤️ by [Your Name Here]", unsafe_allow_html=True)
+st.markdown("Built with ❤️ by [Your Name]", unsafe_allow_html=True)
