@@ -7,27 +7,26 @@ import plotly.graph_objects as go
 
 st.set_page_config(page_title="Customer Churn Prediction App", layout="centered")
 
-# Load model, scaler, and feature names
+# Load model, scaler, feature names
 model = joblib.load("churn_model.pkl")
 scaler = joblib.load("scaler.pkl")
 trained_feature_names = joblib.load("feature_names.pkl")
 
-# Preprocessing function
+# Preprocessing function for batch
 def preprocess(df):
     categorical_cols = ["Gender", "MaritalStatus", "PreferedOrderCat", "PreferredLoginDevice", "PreferredPaymentMode"]
-    
     df = pd.get_dummies(df, columns=categorical_cols)
     
     missing_cols = set(trained_feature_names) - set(df.columns)
     for col in missing_cols:
         df[col] = 0
-
-    df = df[[col for col in trained_feature_names]]
+    
+    df = df[trained_feature_names]
     return df
 
 st.title("📊 Customer Churn Prediction")
 
-# Batch Prediction Section
+# Batch Prediction
 st.sidebar.header("📁 Upload CSV for Batch Prediction")
 batch_file = st.sidebar.file_uploader("Upload CSV file", type=["csv"])
 
@@ -35,7 +34,7 @@ if batch_file:
     df = pd.read_csv(batch_file)
     df_processed = preprocess(df)
 
-    st.write("🚨 Columns passed to scaler (batch):", list(df_processed.columns))  # Debugging line
+    st.write("🚨 Columns passed to scaler (batch):", list(df_processed.columns))
 
     df_scaled = scaler.transform(df_processed)
     preds = model.predict(df_scaled)
@@ -53,7 +52,7 @@ if batch_file:
     csv = df_results.to_csv(index=False).encode('utf-8')
     st.download_button("⬇️ Download Predictions", csv, "churn_predictions.csv", "text/csv")
 
-# Single Customer Prediction Section
+# Single Customer Prediction
 st.header("🧑 Single Customer Prediction")
 
 with st.form("single_customer_form"):
@@ -84,7 +83,8 @@ with st.form("single_customer_form"):
     submit = st.form_submit_button("Predict Now 🔮")
 
 if submit:
-    input_data = pd.DataFrame([{
+    # Build input dictionary
+    input_dict = {
         "Age": Age,
         "Tenure": Tenure,
         "CityTier": CityTier,
@@ -98,19 +98,31 @@ if submit:
         "CouponUsed": CouponUsed,
         "OrderCount": OrderCount,
         "DaySinceLastOrder": DaySinceLastOrder,
-        "CashbackAmount": CashbackAmount,
-        "Gender": Gender,
-        "MaritalStatus": MaritalStatus,
-        "PreferedOrderCat": PreferedOrderCat,
-        "PreferredLoginDevice": PreferredLoginDevice,
-        "PreferredPaymentMode": PreferredPaymentMode
-    }])
+        "CashbackAmount": CashbackAmount
+    }
+    
+    # Start fresh input DataFrame
+    input_df = pd.DataFrame([input_dict])
+    
+    # Now create the one-hot encoded columns manually
+    category_map = {
+        f"Gender_{Gender}": 1,
+        f"MaritalStatus_{MaritalStatus}": 1,
+        f"PreferedOrderCat_{PreferedOrderCat}": 1,
+        f"PreferredLoginDevice_{PreferredLoginDevice}": 1,
+        f"PreferredPaymentMode_{PreferredPaymentMode}": 1
+    }
 
-    input_processed = preprocess(input_data)
+    for col in trained_feature_names:
+        if col not in input_df.columns:
+            input_df[col] = category_map.get(col, 0)
 
-    st.write("🚨 Columns passed to scaler (single):", list(input_processed.columns))  # Debugging line
+    # Reorder columns
+    input_df = input_df[trained_feature_names]
 
-    input_scaled = scaler.transform(input_processed)
+    st.write("🚨 Columns passed to scaler (single):", list(input_df.columns))
+
+    input_scaled = scaler.transform(input_df)
     prob = model.predict_proba(input_scaled)[0][1]
     prediction = int(prob > 0.5)
 
