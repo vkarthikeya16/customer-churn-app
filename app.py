@@ -12,18 +12,27 @@ model = joblib.load("churn_model.pkl")
 scaler = joblib.load("scaler.pkl")
 trained_feature_names = joblib.load("feature_names.pkl")
 
-# Preprocessing function
 def preprocess(df):
+    # Perform one-hot encoding on categorical columns
     df = pd.get_dummies(df, columns=[
         "Gender", "MaritalStatus", "PreferedOrderCat", "PreferredLoginDevice", "PreferredPaymentMode"
     ])
-    # Add any missing columns that model expects
-    for col in trained_feature_names:
-        if col not in df.columns:
-            df[col] = 0
-    # Ensure the same column order as during training
+    
+    # Add missing dummy columns (if any) from training
+    missing_cols = set(trained_feature_names) - set(df.columns)
+    for col in missing_cols:
+        df[col] = 0
+    
+    # Drop any extra columns (not used during training)
+    extra_cols = set(df.columns) - set(trained_feature_names)
+    if extra_cols:
+        df = df.drop(columns=extra_cols)
+    
+    # Reorder columns exactly like training
     df = df[trained_feature_names]
+    
     return df
+
 
 st.title("📊 Customer Churn Prediction")
 
